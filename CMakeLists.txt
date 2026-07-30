@@ -45,10 +45,12 @@ set(CPR_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(cpr)
 
 add_executable(azure_kinect_server 
-    src/main.cpp
-    src/Kinect.cpp
+    src/CameraManager.cpp
     src/PoseChecker.cpp
+    src/Kinect.cpp
+    src/CameraClient.cpp
     src/utils.cpp
+    src/main.cpp
 )
 
 # 5. Include Paths

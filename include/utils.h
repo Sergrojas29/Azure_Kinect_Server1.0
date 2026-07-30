@@ -1,6 +1,7 @@
 #pragma once
 #include "Kinect.h"
 #include "PoseChecker.h"
+#include "CameraManager.h"
 #include <print>
 #include <chrono>
 #include <thread>
@@ -11,10 +12,11 @@
 #include <atomic>  
 #include <iostream>
 
+
 //Key board Listner
 void keyboard_listner();
 
 //Kinect worker
-void kinect_worker(Kinect AzureKinect);
+void kinect_worker(Kinect AzureKinect, CameraManager& camera_Manager);
 
 

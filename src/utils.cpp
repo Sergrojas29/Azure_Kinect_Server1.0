@@ -3,7 +3,7 @@
 // Shared Data
 std::atomic<int> correct_pose_count{0};
 bool start = false;
-bool shutdown = false;
+bool Kinect_shutdown = false;
 PoseState POSE_STATE;
 
 // Lock and Conditional Variable
@@ -69,7 +69,7 @@ void keyboard_listner()
             keep_running = false;
             {
                 std::lock_guard<std::mutex> lock(k4a_mtx);
-                shutdown = true;
+                Kinect_shutdown = true;
             }
 
             cv.notify_one();
@@ -78,7 +78,7 @@ void keyboard_listner()
 }
 
 // worker
-void kinect_worker(Kinect AzureKinect)
+void kinect_worker(Kinect AzureKinect, CameraManager& camera_Manager)
 {
     try
     {
@@ -93,9 +93,9 @@ void kinect_worker(Kinect AzureKinect)
 
                 // set Conditional Var and Lamda Predicate
                 cv.wait(lock, []
-                        { return start || shutdown; });
+                        { return start || Kinect_shutdown; });
 
-                if (shutdown)
+                if (Kinect_shutdown)
                 {
                     std::println("Kinect worker received shutdown Signal");
                     break;
@@ -131,6 +131,7 @@ void kinect_worker(Kinect AzureKinect)
 
             // TODO: Add trigger to camera here also add reference to Camera manager
             //! CameraManager take photos with all cameras
+            camera_Manager.MultiCameraCapture();
             std::println("PHOTO WOULD BE TAKEN");
 
             correct_pose_count.fetch_add(1, std::memory_order_relaxed);

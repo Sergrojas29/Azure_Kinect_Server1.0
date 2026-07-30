@@ -1,0 +1,6 @@
+src/CameraManager.cpp
+src/PoseChecker.cpp
+src/Kinect.cpp
+src/CameraClient.cpp
+src/utils.cpp
+src/main.cpp
