@@ -18,16 +18,16 @@ std::mutex clients_mutex;
 
 int main(int argc, char const *argv[])
 {
-    CameraManager Manager;
+    CameraManager CamManager;
 
-    Manager.ConnnectMultiCamera();
+    CamManager.ConnnectMultiCamera();
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
     Kinect AzureKinect;
     std::this_thread::sleep_for(std::chrono::seconds(5));
     std::println("Initialization Complete. Moving Kinect Azure to new thread... ");
 
-    std::thread kinect_thread(kinect_worker, std::move(AzureKinect), std::ref(Manager));
+    std::thread kinect_thread(kinect_worker, std::move(AzureKinect), std::ref(CamManager));
 
     std::thread keyboard_thread(keyboard_listner);
 
@@ -51,17 +51,28 @@ int main(int argc, char const *argv[])
             if (is_binary) {
               return;
             }
-            auto message = crow::json::load(data);
 
-            // std::println("{}", messaage.dump());
+            // auto message = crow::json::load(data);
+            //! There is only two message sent from UI
+            // Start - Distance 
+            // upload_images - After selecting images
+            
+            //If Start Message
+            if(data == "START"){
+              //TODO : Add a kinect Distence Loop 
+              //distance Dunction
+              //Maybe another thread worker?
+            }
+
+            //else It to upload images and return url for qr code generation 
+            std::string url_for_qr = upload_all_image(data);
+            // TODO have a send message worker?
+
         });
 
     app.port(18080).multithreaded().run();  
 
 
-
-    // TODO: On message of on "START" begin the distance Calculation
-    // TODO: After 
 
     
     kinect_thread.join();

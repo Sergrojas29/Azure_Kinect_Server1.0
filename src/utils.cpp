@@ -146,3 +146,79 @@ void kinect_worker(Kinect AzureKinect, CameraManager& camera_Manager)
         return;
     }
 };
+
+
+
+std::string upload_all_image(const std::string& data){
+    auto message = crow::json::load(data);
+    
+    if(message.has("src")){
+        std::string APIKEY = "f19e946fe179e9fb2da37e8ec4126157";
+        std::string url = "https://api.imgbb.com/1/upload";
+        
+        std::vector<std::string> uploadPath;
+
+        for (auto &item : message) {
+            try {
+
+              std::string file_path = item["src"].s();
+
+              cpr::Response res = cpr::Post(
+                  cpr::Url{url},
+                  cpr::Multipart{
+                      {"key", APIKEY},
+                      {"image", cpr::File{file_path}}});
+
+              if (res.error || res.status_code != 200) {
+                std::cout << "Response text: " << res.text << std::endl;
+                throw std::runtime_error("Error uploading Image");
+              }
+
+              auto data = crow::json::load(res.text);
+              if (!data) {
+                throw std::runtime_error("API did not return valid JSON");
+              }
+
+              //Review Response from Img.bb
+              //url - full resolution
+              //display_url - medium resolution 
+              if (data["data"].has("display_url") && data["data"].has("url")) {
+                std::string url_viewer = data["data"]["display_url"].s();
+                std::string url_full_size = data["data"]["url"].s();
+
+                //THIS IS FORMATING THE URL WITH "url_viewer" 
+                // (add quotation for parsing in Javascript) 
+                url_viewer.insert(0, "\"");
+                url_viewer += "\"";
+
+                //Add to the list of urls
+                uploadPath.push_back(url_viewer);
+              } else {
+                throw std::runtime_error(
+                    "API JSON was missing expected URL keys");
+              }
+
+            } catch (const std::exception &e) {
+              std::cerr << "Exception caught: " << e.what() << std::endl;
+            }
+          }//End of For Message loop
+
+          std::string display_Url =
+              "https://sergrojas29.github.io/Image_dispaly/?images=[";
+
+          std::string combined_images = "";
+          for (size_t i = 0; i < uploadPath.size(); ++i) {
+            combined_images += uploadPath[i];
+            if (i < uploadPath.size() - 1) {
+              combined_images += ",";
+            }
+          }
+
+          combined_images += "]";
+          //For Debug Logging
+          std::println("\n Http url : {}", display_Url);
+          return display_Url += combined_images;
+    }
+    std::println("Error - No 'src' param was found")
+    return "https://sergrojas29.github.io/Image_dispaly/";
+}
