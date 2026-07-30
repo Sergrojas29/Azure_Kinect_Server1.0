@@ -46,6 +46,9 @@ FetchContent_MakeAvailable(cpr)
 
 add_executable(azure_kinect_server 
     src/main.cpp
+    src/Kinect.cpp
+    src/PoseChecker.cpp
+    src/utils.cpp
 )
 
 # 5. Include Paths
@@ -54,7 +57,9 @@ target_include_directories(azure_kinect_server PRIVATE
 )
 
 # 6. Link Libraries
-target_link_libraries(azure_kinect_server PRIVATE 
+target_link_libraries(azure_kinect_server PRIVATE
+    k4a::k4a 
+    k4abt::k4abt  
     PkgConfig::GPHOTO2
     PkgConfig::CUPS
     ${OpenCV_LIBS}

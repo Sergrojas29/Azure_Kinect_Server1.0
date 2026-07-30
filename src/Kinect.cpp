@@ -12,7 +12,7 @@ Kinect::Kinect()
     }
     
     m_device.reset(raw_device);
-    std::println("Camera opened successfully.");
+    std::println("Kinect opened successfully.");
 
     // Configure and start the camera
     k4a_device_configuration_t device_config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
@@ -41,12 +41,13 @@ Kinect::Kinect()
     if (k4abt_tracker_create(&calibration, tracker_config, &raw_tracker) != K4A_RESULT_SUCCEEDED) {
         throw std::runtime_error("Error: Failed to initialize AI tracker.");
     }
+    //Transfer owner ship to unq ptr
     m_tracker.reset(raw_tracker);  
 
     }
     catch(const std::exception& e)
     {
-        std::println("There was an exception caught : {}" , e);
+        std::println(stderr, "There was an exception caught : {}" , e.what());
     }       
 }
 
