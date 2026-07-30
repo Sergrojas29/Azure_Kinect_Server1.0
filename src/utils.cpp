@@ -39,9 +39,30 @@ void keyboard_listner()
         }
         if (input == '3')
         {
+            {
+                std::lock_guard<std::mutex> lock(k4a_mtx);
+                POSE_STATE = PoseState::POSE_CUTE_STANDING;
+                start = true;
+            }
+            cv.notify_one();
         }
         if (input == '4')
         {
+            {
+                std::lock_guard<std::mutex> lock(k4a_mtx);
+                POSE_STATE = PoseState::POSE_LEAN_LEFT;
+                start = true;
+            }
+            cv.notify_one();
+        }
+        if (input == 'd')
+        {
+            {
+                std::lock_guard<std::mutex> lock(k4a_mtx);
+                POSE_STATE = PoseState::DIST_CHECK;
+                start = true;
+            }
+            cv.notify_one();
         }
         if (input == 'q')
         {
@@ -120,7 +141,7 @@ void kinect_worker(Kinect AzureKinect)
     }
     catch (const std::runtime_error &e)
     {
-        std::println(stderr,"CRITICAL ERROR: {}", e.what());
+        std::println(stderr, "CRITICAL ERROR: {}", e.what());
         return;
     }
 };

@@ -24,8 +24,8 @@ int main(int argc, char const *argv[])
     // TODO: On message of on "START" begin the distance Calculation
     // TODO: After 
 
+    
     kinect_thread.join();
     keyboard_thread.join();
-
     return 0;
 }

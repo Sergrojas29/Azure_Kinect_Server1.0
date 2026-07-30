@@ -104,32 +104,28 @@ bool PoseChecker::check(PoseState Pose, const k4abt_skeleton_t &skeleton)
 
 
 
-        rightLeg ( Right Hip -> Right Knee -> right foot) RAD = 
+        rightLeg ( Right Hip -> Right Knee -> right foot) RAD =
 
         L ArmAngle ( shoulder -> elbow -> wrist) RAD = .
 
         */
 
         float hipAngle = get_Rad_3D(skeleton.joints[K4ABT_JOINT_ANKLE_LEFT].position,
-                                         skeleton.joints[K4ABT_JOINT_ANKLE_RIGHT].position,
-                                         skeleton.joints[K4ABT_JOINT_PELVIS].position);
+                                    skeleton.joints[K4ABT_JOINT_ANKLE_RIGHT].position,
+                                    skeleton.joints[K4ABT_JOINT_PELVIS].position);
 
         float RightArmAngle = get_Rad_3D(skeleton.joints[K4ABT_JOINT_SHOULDER_RIGHT].position,
-                                        skeleton.joints[K4ABT_JOINT_WRIST_RIGHT].position,
-                                        skeleton.joints[K4ABT_JOINT_ELBOW_RIGHT].position);
+                                         skeleton.joints[K4ABT_JOINT_WRIST_RIGHT].position,
+                                         skeleton.joints[K4ABT_JOINT_ELBOW_RIGHT].position);
         float leanAngle = get_Rad_3D(skeleton.joints[K4ABT_JOINT_WRIST_LEFT].position,
-                                        skeleton.joints[K4ABT_JOINT_PELVIS].position,
-                                        skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position);
+                                     skeleton.joints[K4ABT_JOINT_PELVIS].position,
+                                     skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position);
 
         float tolerance = .1f;
 
-
-
-
         if (std::abs(hipAngle - .65f) < tolerance &&
             std::abs(leanAngle - .55f) < (tolerance + .05f) &&
-            std::abs(RightArmAngle - 2.11f) < tolerance 
-        )
+            std::abs(RightArmAngle - 2.11f) < tolerance)
         {
             return true;
         }
@@ -161,11 +157,8 @@ bool PoseChecker::check(PoseState Pose, const k4abt_skeleton_t &skeleton)
 
         float tolerance = .1f;
 
-
-
         if (std::abs(rightLegAngle - 1.52f) < tolerance &&
-            std::abs(leftArmAngle - .62f) < tolerance
-        )
+            std::abs(leftArmAngle - .62f) < tolerance)
         {
             return true;
         }
@@ -192,15 +185,25 @@ bool PoseChecker::check(PoseState Pose, const k4abt_skeleton_t &skeleton)
         }
         return false;
     }
-    case PoseState::DIST_CHECK:{
+    case PoseState::DIST_CHECK:
+    {
         float z_spine_navel = skeleton.joints[K4ABT_JOINT_SPINE_NAVEL].position.xyz.z;
 
+        float tolerance = 10.0;
+        std::println("Distance : {}", z_spine_navel );
+        
         float goal = 2000.0;
 
-        if( z_spine_navel == goal){ return true;}
+
+        if( std::abs(z_spine_navel - goal) < tolerance)
+        {
+            std::println("Distance GOAL REACHED");
+            return true;
+        }
+
+        // TODO: REMOVE LATER
 
         return false;
-
     }
     default:
         throw std::runtime_error("No pose was selected");
