@@ -50,3 +50,54 @@ Kinect::Kinect()
     }       
 }
 
+
+
+std::optional<k4abt_body_t> Kinect::getBodyPosition() {
+    // Possible Returns 
+    // K4A_WAIT_RESULT_SUCCEEDED (0)
+    // K4A_WAIT_RESULT_FAILED (1)
+    // K4A_WAIT_RESULT_TIMEOUT (2)
+
+    const int timeout_ms = 0; // 0 timeout means return immediately if no frame is available
+
+    k4a_capture_t raw_capture = nullptr;
+    k4a_wait_result_t capture_result = k4a_device_get_capture(m_device.get(), &raw_capture, timeout_ms);
+    if (capture_result == K4A_WAIT_RESULT_FAILED) {
+        throw std::runtime_error("Failed to get Raw capture pointer");
+    }else if(capture_result == K4A_WAIT_RESULT_TIMEOUT){
+        return std::nullopt;
+    }
+
+    // Create transient smart pointer
+    unique_capture capture(raw_capture); 
+    k4a_wait_result_t enqueue_result = k4abt_tracker_enqueue_capture(m_tracker.get(), capture.get(), timeout_ms);
+    if (enqueue_result == K4A_WAIT_RESULT_FAILED) {
+        throw std::runtime_error("Failed Tracker enqueue");
+    }else if(enqueue_result == K4A_WAIT_RESULT_TIMEOUT) {
+        return std::nullopt; 
+    }
+
+
+
+    k4abt_frame_t raw_frame = nullptr;
+    k4a_wait_result_t pop_result = k4abt_tracker_pop_result(m_tracker.get(), &raw_frame, timeout_ms);
+    if (pop_result == K4A_WAIT_RESULT_FAILED) {
+        throw std::runtime_error("Failed to pop tracker");
+    }else if (pop_result == K4A_WAIT_RESULT_TIMEOUT) {
+        return std::nullopt; 
+    }
+    // Create Unq ptr for the Frame
+    unique_frame frame(raw_frame);
+
+    // Check for Body -> Get First and return
+    if (k4abt_frame_get_num_bodies(frame.get()) > 0) {
+        k4abt_body_t body;
+        k4abt_frame_get_body_skeleton(frame.get(), 0, &body.skeleton);
+        
+        //SUCCESSFUL CAPTURE OF BODY or BODIES
+        return body;
+    }
+    
+    //FAIL
+    return std::nullopt;
+}

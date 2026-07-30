@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include <UniquePointerDeleter.h>
 
 
@@ -23,5 +24,7 @@ private:
 public:
     Kinect();
     ~Kinect()= default;
+
+    std::optional<k4abt_body_t> Kinect::getBodyPosition();
 };
 

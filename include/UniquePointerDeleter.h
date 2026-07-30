@@ -5,6 +5,7 @@
 #include <thread>
 #include <print>
 #include <memory>
+#include <chrono>
 #include <condition_variable>
 
 // Helper to tell unique_ptr how to safely free k4a device
