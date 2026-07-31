@@ -27,7 +27,7 @@ int main(int argc, char const *argv[])
     std::this_thread::sleep_for(std::chrono::seconds(5));
     std::println("Initialization Complete. Moving Kinect Azure to new thread... ");
 
-    std::thread kinect_thread(kinect_worker, std::move(AzureKinect), std::ref(CamManager));
+    std::thread kinect_thread(kinect_pose_worker, std::move(AzureKinect), std::ref(CamManager));
 
     std::thread keyboard_thread(keyboard_listner);
 
