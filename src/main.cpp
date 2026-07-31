@@ -66,7 +66,13 @@ int main(int argc, char const *argv[])
 
             //else It to upload images and return url for qr code generation 
             std::string url_for_qr = upload_all_image(data);
+            crow::json::wvalue response;
+            response["action"] = "url_qr";
+            response["url"] = url_for_qr;
+
+            send_message(active_connections, response.dump());
             // TODO have a send message worker?
+            std::println("{}", data);
 
         });
 

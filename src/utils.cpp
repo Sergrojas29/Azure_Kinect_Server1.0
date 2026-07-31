@@ -77,8 +77,8 @@ void keyboard_listner()
         {
             keep_running = false;
             {
-                std::lock_guard<std::mutex> lock(k4a_mtx);
-                std::lock_guard<std::mutex> lock(k4a_live_mtx);
+                std::lock_guard<std::mutex> lock1(k4a_mtx);
+                std::lock_guard<std::mutex> lock2(k4a_live_mtx);
                 Kinect_shutdown = true;
                 kinect_live_shutdown = true;
             }
@@ -163,7 +163,7 @@ std::string upload_all_image(const std::string &data)
 {
     auto message = crow::json::load(data);
 
-    if (message.has("src"))
+    if (message[0].has("src"))
     {
         std::string APIKEY = "f19e946fe179e9fb2da37e8ec4126157";
         std::string url = "https://api.imgbb.com/1/upload";
@@ -245,7 +245,8 @@ std::string upload_all_image(const std::string &data)
     return "https://sergrojas29.github.io/Image_dispaly/";
 }
 
-// Kinect Pose worker
+// Kinect Distance worker
+// TODO Add later doesn't seem too importan
 void kinect_distance_worker(Kinect &AzureKinect, CameraManager &camera_Manager)
 {
     try
@@ -255,8 +256,7 @@ void kinect_distance_worker(Kinect &AzureKinect, CameraManager &camera_Manager)
 
             std::println("Kinect Live Distance Worker thread is idel");
 
-            // Block Scope Wait and Consume Trigger
-            {
+            { //* Block Scope Wait and Consume Trigger
                 std::unique_lock<std::mutex> lock(k4a_live_mtx);
 
                 // set Conditional Var and Lamda Predicate
@@ -271,18 +271,18 @@ void kinect_distance_worker(Kinect &AzureKinect, CameraManager &camera_Manager)
 
                 //! Reset the lock for wait() to block loop
                 kinect_live_start = false;
-            }
+            } //* Block Scope Wait and Consume Trigger
 
-            // Try to Achive goal
+            // While goal IS NOT achived
             bool goal_not_achieved = true;
-            std::println("Kinect Worker Started to proccess data");
+            std::println("Kinect Distance Worker Started to proccess data");
 
             while (goal_not_achieved)
             {
 
                 // Poll Camera
                 auto body = AzureKinect.getBodyPosition();
-                
+
                 if (body.has_value())
                 {
                     const auto &detected_body = body.value();
@@ -291,11 +291,10 @@ void kinect_distance_worker(Kinect &AzureKinect, CameraManager &camera_Manager)
 
                     float z_spine_navel = detected_body.skeleton.joints[K4ABT_JOINT_SPINE_NAVEL].position.xyz.z;
 
-                    float tolerance = 10.0;
-
                     // TODO: REMOVE DEBUG STATEMENT
                     std::println("Distance : {}", z_spine_navel);
 
+                    float tolerance = 10.0;
                     float goal = 2000.0;
 
                     // TODO: ADD send message of distance at 30hz
@@ -306,16 +305,25 @@ void kinect_distance_worker(Kinect &AzureKinect, CameraManager &camera_Manager)
                         goal_not_achieved = false;
                     }
                 }
-                    // Sleep for ~33ms ~30(FPS).
-                    std::this_thread::sleep_for(std::chrono::milliseconds(33));
-                }
-
-                // TODO: Add message Of success to UI
+                // Sleep for ~33ms ~30(FPS).
+                std::this_thread::sleep_for(std::chrono::milliseconds(33));
             }
+
+            // TODO: Add message Of success to UI
         }
-        catch (const std::runtime_error &e)
-        {
-            std::println(stderr, "CRITICAL ERROR: {}", e.what());
-            return;
-        }
-    };
+    }
+    catch (const std::runtime_error &e)
+    {
+        std::println(stderr, "CRITICAL ERROR: {}", e.what());
+        return;
+    }
+};
+
+//TODO This should be a class or encapsulated some how
+std::mutex client_mutex;
+void send_message(const std::unordered_set<crow::websocket::connection *> &active_connections, std::string message){
+    std::lock_guard<std::mutex> lock(client_mutex);
+    for (auto &&client : active_connections) {
+    client->send_text(message);
+    }
+};

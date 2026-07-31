@@ -31,12 +31,23 @@ void keyboard_listner();
 void kinect_pose_worker(Kinect AzureKinect, CameraManager& camera_Manager);
 
 //Kincet Distance worker
-void kinect_distance_worker();
 
+/**Function Kinect Distance Worker
+ * 
+ * Meant to be used as in a thread. Activated
+ * With signal from conditional variables
+ *  
+ * @param &AzureKinect
+ * @param &CameraManager
+ * 
+ * 
+ */
+void kinect_distance_worker(Kinect &AzureKinect, CameraManager &camera_Manager);
+
+//TODO This should be a class or encapsulated some how
 //Probable another worker
 //! need another mutex?
-void send_message_worker(const std::unordered_set<crow::websocket::connection *>& active_connections);
-
+void send_message(const std::unordered_set<crow::websocket::connection *>& active_connections, std::string message);
 
 
 
