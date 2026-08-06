@@ -52,6 +52,10 @@ enum class PoseState
     DIST_CHECK
 };
 
+PoseState& operator++(PoseState& d);
+
+PoseState operator++(PoseState& d, int);
+
 class PoseChecker
 {
 public:

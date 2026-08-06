@@ -11,6 +11,8 @@ bool start = false;
 bool Kinect_shutdown = false;
 PoseState POSE_STATE;
 
+
+
 // Not really to important but Kinect Live Distance
 std::condition_variable cv_dist;
 std::mutex k4a_live_mtx;

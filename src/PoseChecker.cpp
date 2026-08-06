@@ -1,5 +1,25 @@
 #include "PoseChecker.h"
 
+
+
+PoseState& operator++(PoseState& d) {
+    if (d == PoseState::POSE_LEAN_LEFT) {
+        d = PoseState::POSE_EMPOWERED; // Wrap around
+    } else {
+        
+        d = static_cast<PoseState>(static_cast<int>(d) + 1);
+    }
+    return d;
+}
+
+PoseState operator++(PoseState& d, int) {
+    PoseState temp = d;
+    ++d;
+    return temp;
+}
+
+
+
 bool PoseChecker::check(PoseState Pose, const k4abt_skeleton_t &skeleton)
 {
 

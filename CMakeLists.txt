@@ -48,6 +48,7 @@ add_executable(azure_kinect_server
     src/CameraManager.cpp
     src/PoseChecker.cpp
     src/Kinect.cpp
+    src/KinectManager.cpp
     src/CameraClient.cpp
     src/utils.cpp
     src/main.cpp
