@@ -45,11 +45,8 @@ But, the two main sdk for the Azure Kinect and gphotolab2 are written in C and i
 
 **Solution** Modern C++ allow the creation of unique pointer to allow better ownership or dynamically allocated memory. That automatically deletes to resource when the pointer goes out of scope. Creation of Deleters `std::unique_ptr<T,Deleter>` when initation of a unique pointer. Allow a wrapper and transfer of ownership after the library like `k4a` or `gphotolib2` allocates and initiated the memory raw pointer.
 
-I the case both library require quite a few Deleters. 
+Eg Kinect Azure Library has to have quite a bit of Deleters
 
-| Kinect Deleter | Camera Deleter|
-| ---| ---|
-|
 ```C++
 struct K4aDeviceDeleter
 {
@@ -92,14 +89,62 @@ struct K4aBodyFrameDeleter
         }
     }
 };
-```| sdfsdf |
+```
 
 
 ## Features
 
+Modularity and portablitly was the main goal. Most of the Camera client is brought in from a previous project only expanded to allow multi camera set up. 
+
+
+
 ## Prerequisites
 
+Azure kinect 
+
+Install the Core Drivers & Tracking SDK
+
+CRITICAL: The libk4abt tracker requires exactly version 1.4.1 of the base SDK. You must force these versions to prevent an apt dependency standoff. sudo apt-get install libk4a1.4=1.4.1 libk4a1.4-dev=1.4.1 libk4abt1.1 libk4abt1.1-dev k4a-tools=1.4.1
+Gphotolib2 support camera (canon, nikon recommeded)
+
+Gpu with CUDA installed
+Install the CUDA Compiler Toolkit: `sudo apt-get install nvidia-cuda-toolkit` `nvcc --version`
+
+
+Linux (Ubuntu 24.03 lts)
+
 ## Project Structure
+
+### Main Classes
+
+ `CameraManager` ->`CameraClient`
+
+Camera Client is initiated per camera attached at launch. It create controller per camera that will hold all function for each camera
+
+#### CameraClient
+
+```c++
+class CameraClient {
+private:
+  std::unique_ptr<GPContext, ContextDeleter> m_context; 
+  std::unique_ptr<Camera, CameraDeleter> m_camera;
+  bool m_connected;
+  std::vector<std::string> ImagesPaths;
+public:
+  std::string camera_name;
+  int m_photo_count = 0;
+  std::string m_save_path;
+
+  bool connect();
+  bool isConnected();
+  bool capturePhoto(std::string SaveImagePath);
+  std::vector<std::string> Get_allImagePaths()
+  void Set_image_path(std::string new_image_Path)
+};
+```
+
+ `KinectManager` ->`Kinect` -> `PoseChecker`
+
 
 ## Concurrent System design
 
