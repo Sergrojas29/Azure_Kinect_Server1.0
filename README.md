@@ -1,57 +1,46 @@
 # Azure Kinect Server 1.0
+
+![main](readme/main_picture@0.25x.png)
+
 ## Introduction 
+This project is an extension of a previous C++ exercise, with a core focus on advanced SDK integration and multi-threaded application architecture. It serves as a modern C++ local network API designed to orchestrate an Azure Kinect and multiple DSLR cameras. The primary objective is to build modular, portable classes with strict ownership and encapsulation for hardware control.
 
-This is futher develompent of create a local network API to allow the control of Azure Kinect and Multiple DSLR cameras with the clear goal to create a modular and portable classes for each control. Class are meant to have clear ownership and encapsulation for methods and variables.
+A key feature of this server is its **Crow C++ WebSocket integration**, providing a live, bi-directional connection between the client and server without relying on constant HTTP polling. This architecture abstracts the complex hardware execution away from the frontend client. 
 
-The server is unique dive into websocket intergration for a live connection with inter network active commincation. This will create a live API that can communcate between process without polling. Also allow abstraction from the more complex execution from the server to the client. The server connect a concurrent stream of data from the Azure Kinect to allow the local `ONNX` AI model to track any human skeleton with 32 joints. The server can connect to multiple (test up to 5 cameras) dslr cameras to trigger in parallel from any trigger by the API.
-
-## Problems
+The server concurrently streams depth data from the Azure Kinect, utilizing a local `ONNX` AI model to track 32-joint human skeletons. Simultaneously, it maintains connections with up to 5 DSLR cameras via `libgphoto2`, allowing the API to trigger high-resolution captures in parallel.
 
 
-### Concurrent Runtime
-Since there need to be different process running at the same time the need for concurrency is need
+## Technical Challenges & Solutions
 
-**Solution:** Multi-threading to the rescue! Since we need to listen for message, control Kinect and trigger cameras. Each needs to start their own thread to allow for concurrency.
+### 1. Concurrent Runtime
+Hardware requires multiple processes to run simultaneously without blocking the main execution loop. Listening for WebSocket messages, polling Kinect frames, and triggering DSLR cameras sequentially would cause massive latency.
 
-### Syncronization of Communcation
+**Solution:** Multi-threading. The application spawns dedicated `std::thread` workers for the Kinect tracking loop, the camera management loop, and the WebSocket listener, allowing true concurrent execution.
 
-Issue running multithread programe is race conditions, IPC, Deadlock .ect. 
+### 2. Synchronization of Communication
+Running a multi-threaded C++ program introduces risks of race conditions, deadlocks, and corrupted inter-process communication (IPC).
 
-**Solution:** Using mutex locks, conditional variable, and atomic operations. 
+**Solution:** The architecture safely passes state between threads using `std::mutex` locks, `std::condition_variable` triggers, and `std::atomic` operations, ensuring thread-safe data reads and hardware commands. While maintaining open communication with any connection in the websocket.
 
-### Limited GPU
+### 3. Limited GPU Compute Management
+The server machine utilizes an NVIDIA GTX 1050 Ti with only 4GB of VRAM. Running the Azure Kinect body tracking neural network continuously at 30 FPS quickly taxes the system, even when active tracking isn't required by the user.
 
-The nivida gtx 1050 is far from the peak of computing power, with only a very limited vram of 4G.
+**Solution:** The system uses `std::condition_variable` to pause the tracking thread when idle, freeing the GPU. 
+1. **Idle State:** The Kinect spins up and enters a `wait` status. The thread is `blocked`.
+2. **Trigger State:** The API listener receives a WebSocket payload and flips an `std::atomic<bool>` variable. This triggers the condition variable, waking the Kinect thread.
+3. **Execution State:** The Kinect enters a `running` status, processes the skeletal data, and upon completion, flips the atomic variable back to `wait`.
 
-**Solution** The kinect is set to try to keep a 30fps exectution but that taxing and there are points when all that compute power isn't need. The use of block from `cv` to only retart the computing process when signaled. And Use of a API listener to change an atomic variable when ever allows the process to work in a threadsafe exectuion that allows instant response time from both client and server. 
+Atomic variables are also heavily utilized for graceful `shutdown` signaling. If an OS interrupt (`Ctrl+C`) or terminal error occurs, the atomics ensure the loops exit cleanly, preventing hardware zombies or memory leaks.
 
-1. Kinect spins to up to run and waits 
-    - status:  `wait`
-    - Kinect status:  `blocked`
+### 4. Modernizing C Libraries
+While C is highly performant, legacy SDKs lack modern memory safety. The two core hardware libraries used in this project (`k4a` and `libgphoto2`) are C-based and require manual initialization and destruction.
 
-2. API will listen form the websocket connection to change a atomic variable. This will trigger a conitional variable to restart exectution of the kinect loop
-    - status: `ready`
-    - Kinect status:  `running`
-3. The Kinect will reach a trigger to change the atomic variable again to `wait`. And will be aviable for more work
-    - status: `wait`
-    - Kinect status:  `blocked`
+**Solution:** The project wraps raw C pointers in modern C++ `std::unique_ptr` with custom Deleters. This transfers ownership to the C++ compiler, ensuring the hardware resources are automatically and safely released when the pointer goes out of scope (RAII).
 
-Another saving use of atomic varaible it to trigger a `shutdown`. In case there is a error that will not allow the kinect loop from running indefinatly or prevent the clean up of memory leading to a memory leak
-
-### C librarys
-
-C is prefect langue... But the C++ allows abrastaction, class encalsulatopnm and modern clean of memory to prevent memory leaks.
-But, the two main sdk for the Azure Kinect and gphotolab2 are written in C and in the case of the `K4a` is propriatiy and cannot be changed.
-
-**Solution** Modern C++ allow the creation of unique pointer to allow better ownership or dynamically allocated memory. That automatically deletes to resource when the pointer goes out of scope. Creation of Deleters `std::unique_ptr<T,Deleter>` when initation of a unique pointer. Allow a wrapper and transfer of ownership after the library like `k4a` or `gphotolib2` allocates and initiated the memory raw pointer.
-
-Eg Kinect Azure Library has to have quite a bit of Deleters
-
-```C++
-struct K4aDeviceDeleter
-{
+```cpp
+// Example: Custom Deleters for the Azure Kinect SDK
+struct K4aDeviceDeleter {
     void operator()(_k4a_device_t* device) const {
-        //Check for nullptr (typical for all Deleters)
         if (device) {
             k4a_device_stop_cameras(device);
             k4a_device_close(device);
@@ -59,9 +48,7 @@ struct K4aDeviceDeleter
     }
 };
 
-// Helper shut down and destroy the AI tracker
-struct K4aTrackerDeleter
-{
+struct K4aTrackerDeleter {
     void operator()(_k4abt_tracker_t* tracker) const {
         if (tracker) {
             k4abt_tracker_shutdown(tracker);
@@ -69,61 +56,42 @@ struct K4aTrackerDeleter
         }
     }
 };
-
-// release raw sensor captures
-struct K4aSensorCaptureDeleter
-{
-    void operator()(_k4a_capture_t* sensor_capture) const {
-        if (sensor_capture) {
-            k4a_capture_release(sensor_capture);
-        }
-    }
-};
-
-// release processed body tracking frames
-struct K4aBodyFrameDeleter
-{
-    void operator()(_k4abt_frame_t* body_frame) const {
-        if (body_frame) {
-            k4abt_frame_release(body_frame);
-        }
-    }
-};
 ```
 
-
-## Features
-
-Modularity and portablitly was the main goal. Most of the Camera client is brought in from a previous project only expanded to allow multi camera set up. 
-
-
+---
 
 ## Prerequisites
 
-Azure kinect 
+**Hardware:**
+* Microsoft Azure Kinect (ToF Sensor)
+* DSLR Cameras with Gphoto2 support (Canon/Nikon recommended)
+* NVIDIA GPU
 
-Install the Core Drivers & Tracking SDK
+**Software & Dependencies (Ubuntu 24.04 LTS):**
+* **CUDA Toolkit:** `sudo apt-get install nvidia-cuda-toolkit`
+* **Azure Kinect SDK & Body Tracking:** 
+  *(CRITICAL: The libk4abt tracker requires exactly version 1.4.1 of the base SDK. You must force these versions to prevent an apt dependency standoff).*
+  ```bash
+  sudo apt-get install libk4a1.4=1.4.1 libk4a1.4-dev=1.4.1 libk4abt1.1 libk4abt1.1-dev k4a-tools=1.4.1
+  ```
+* **CrowCpp** (WebSockets)
+* **nlohmann/json** (JSON parsing)
+* **cpr** (HTTP client for API uploads)
 
-CRITICAL: The libk4abt tracker requires exactly version 1.4.1 of the base SDK. You must force these versions to prevent an apt dependency standoff. sudo apt-get install libk4a1.4=1.4.1 libk4a1.4-dev=1.4.1 libk4abt1.1 libk4abt1.1-dev k4a-tools=1.4.1
-Gphotolib2 support camera (canon, nikon recommeded)
-
-Gpu with CUDA installed
-Install the CUDA Compiler Toolkit: `sudo apt-get install nvidia-cuda-toolkit` `nvcc --version`
-
-
-Linux (Ubuntu 24.03 lts)
+---
 
 ## Project Structure
 
-### Main Classes
+**Data Flow:**
+`Crow WebSockets` -> `KinectManager` -> `Kinect` -> `PoseChecker`
+`Crow WebSockets` -> `CameraManager` -> `CameraClient`
 
- `CameraManager` ->`CameraClient`
-
-Camera Client is initiated per camera attached at launch. It create controller per camera that will hold all function for each camera
+![dataflow](readme/system.png)
+### Core Classes
 
 #### CameraClient
-
-```c++
+Manages a single DSLR connection, capturing and retrieving images locally.
+```cpp
 class CameraClient {
 private:
   std::unique_ptr<GPContext, ContextDeleter> m_context; 
@@ -138,23 +106,81 @@ public:
   bool connect();
   bool isConnected();
   bool capturePhoto(std::string SaveImagePath);
-  std::vector<std::string> Get_allImagePaths()
-  void Set_image_path(std::string new_image_Path)
+  std::vector<std::string> Get_allImagePaths();
+  void Set_image_path(std::string new_image_Path);
 };
 ```
 
- `KinectManager` ->`Kinect` -> `PoseChecker`
+#### CameraManager
+Orchestrates parallel triggers across multiple `CameraClient` instances.
+```cpp
+class CameraManager {
+private:
+    int TotalPhotoCount;
+    std::vector<CameraClient> connectedCameras;
+public:
+  void ConnnectMultiCamera();
+  void MultiCameraCapture();
+  std::vector<std::string> Get_allImagePaths();
+};
+```
 
+#### Kinect
+Wraps the raw Microsoft SDK handles in safe unique pointers.
+```cpp
+class Kinect {
+private:
+    unique_device m_device;
+    unique_tracker m_tracker;
+public:
+    std::optional<k4abt_body_t> getBodyPosition();
+};
+```
 
-## Concurrent System design
+#### KinectManager
+The multi-threaded orchestrator. Manages the WebSocket state, condition variables, JSON formatting, and external API requests (e.g., ImgBB).
+```cpp
+class KinectManager {
+private:
+    // Shared Data
+    std::atomic<int> correct_pose_count{0};
+    
+    // Lock and Conditional Variable for Pose Kinect
+    std::condition_variable cv;
+    std::mutex k4a_mtx;
+    
+    // Shared Data for Kinect Pose Worker
+    bool start = false;
+    bool Kinect_shutdown = false;
+    PoseState POSE_STATE;
+    
+    // Client mutex & Message Listener
+    std::mutex client_mutex;
+    std::atomic<bool> keep_running{true};
+    
+public:
+    bool new_message = false;
+    std::mutex msg_mtx;
+    std::condition_variable msg_cv;
+    std::string message_string;
+    
+    std::string upload_all_image(const crow::json::rvalue &message);
+    void kinect_pose_worker(Kinect AzureKinect, CameraManager &camera_Manager);
+    void send_message(const std::unordered_set<crow::websocket::connection *> &active_connections, std::string message);
+    void message_listener(const std::unordered_set<crow::websocket::connection *> &active_connections, CameraManager& CamManager);
+};
+```
 
-## Classes
+---
 
-## Testing
+## Results & Conclusion
 
-## Project results? 
+This project successfully transitioned from a standard HTTP polling model to an event-driven WebSocket architecture. A live, bi-directional connection provided massive flexibility in sharing JSON data, triggering hardware processes on demand, and blocking idle threads to save GPU cycles.
 
-## Conclusion 
+**Key Takeaways:**
+* **Systems Engineering:** Built a highly portable, functional, and thread-safe library capable of future expansion into physical sensors or production environments.
+* **Modern C++:** Successfully utilized C++23 standards (Atomics, Mutexes, Condition Variables, Smart Pointers) to abstract away the mental overhead of tracking legacy C memory leaks.
+* **Hardware Integration:** Gained practical experience marrying proprietary computer vision SDKs with local network layers.
 
-
-
+**Future Work:**
+The internal API protocol currently relies on specific string payloads (e.g., checking `"action" == "REVIEW"`). Future iterations will focus on formalizing a stricter, more standard REST-like interface over WebSockets for easier client integration.
